@@ -1,0 +1,352 @@
+---
+title: "UEFA Champions League Exploration"
+author: "Oghenemarho Ayanruoh"
+format: pdf
+date: now
+editor: visual
+self-contained: true
+toc: true
+---
+
+## Introduction
+
+The UEFA Champions League stands as one of the most prestigious tournaments in club football, showcasing elite teams from across Europe. This report aims to explore patterns of dominance in both the men's and women's competitions by analyzing the countries and clubs that have historically performed the best. By cleaning and organizing relevant data sets, I investigate which nations and teams have achieved the most success and uncover trends in title distribution over time. Through this analysis, I seek to answer a series of guiding questions that evolved and became more focused as the data was prepared and explored.
+
+\newpage
+
+### Discussion of Research Questions
+
+This report is guided by the following research questions:
+
+1.  Which three countries have dominated the UEFA Men’s Champions League the most (by total titles won)?
+
+2.  Which three countries have dominated the UEFA Women's Cup and Champions League the most (by total titles won)?
+
+3.  Within the most dominant country, which club has been the most successful in the UEFA Men’s and Women’s Champions League?
+
+4.  Which club holds the record for the most UEFA Champions League titles, and how many have they won?
+
+5.  Which club has appeared in the most UEFA Champions League finals and plot the graphs (Men's and Women's)?
+
+## Background Information
+
+To answer my research questions, I obtained historical data on UEFA Champions League titles, including which clubs have won, how many titles each has earned, and their countries of origin. This also includes data on how often a club has been a runner-up. My analysis focuses on identifying patterns of dominance at both the national and club levels, comparing the men’s and women’s tournaments to determine whether similar countries or clubs dominate in both. I also aim to highlight differences in competitiveness and the concentration of titles.
+
+\newpage
+
+## Data Summary
+
+### Primary Data Set:
+
+```{r Readin in Primary Data Set,echo=FALSE ,warning=FALSE, message=FALSE}
+
+#| Style guide: Tht BOAST Style Guide
+library(dplyr)
+library(knitr)
+
+UclFinals <- read.csv("C:\\Users\\oayan\\OneDrive\\Desktop\\ucl-finals.csv")
+```
+
+I obtained this data set from Kaggle, where it was originally sourced from Wikipedia. The data set includes historical information about UEFA Champions League finals. The following are the key attributes I will focus on in my analysis:
+
+winner.country: The country of winner team
+
+winner: The name of the winner club
+
+runner.up: The name of the runner up club
+
+runner.up.country: The country of the runner up team
+
+attendance: The attendance in final match, 1973-74 season has 2 matches, so there are two attendances data in separated with semicolon form
+
+winning.way: normal time or extra time or penalty
+
+\newpage
+
+### Secondary Data Sets:
+
+1.  This data was sourced from Wikipedia. Using HTML scraping, I obtained two tables from the site that detail performances in the European Cup and UEFA Men's Champions League:
+
+a)  Performance by Nation – This table summarizes how each country has performed in terms of total titles and runner-up finishes by its clubs.
+
+```{r First Secondary Data Set HTMLScraping, echo=FALSE, message=FALSE, warning=FALSE}
+
+library(rvest)
+library(tidyr)
+library(dplyr)
+library(knitr)
+library(mosaic)
+library(ggplot2)
+URL <- "https://en.wikipedia.org/wiki/List_of_European_Cup_and_UEFA_Champions_League_finals"
+ListOfTables <- URL %>%
+read_html() %>%
+html_nodes(css = "table") %>%
+html_table(fill = TRUE)
+SummaryNationPerformance <- ListOfTables[[5]]
+WinningClubByNation <- ListOfTables[[6]]
+```
+
+```{r tbl-SummaryNationPerformance, echo=FALSE}
+
+SummaryNationPerformance %>%
+  kable(format = "markdown", caption = "Men's Performances in finals by nation")
+```
+
+\newpage
+
+b)  Performance of Winning Clubs by Nation - This table summarizes how many times clubs from each country have won or finished as runners-up in the UEFA Champions League. It highlights national-level success by aggregating the performances of clubs under their respective countries. The clubs are listed in the order of the first to win from each country, allowing for a historical view of national dominance in the tournament.
+
+When I first received the dataset, all the clubs were listed in a single column, separated by commas. Through data wrangling, I split this column so that each club now has its own column. As a result, the first club to win the UEFA Men’s Champions League from a given country now appears in the “Club 1” column, followed by subsequent clubs in order.
+
+```{r tbl-WinningClubByNation, echo=FALSE}
+
+WinningClubByNation1 <- WinningClubByNation %>%
+  rename(Clubs = "Winning clubs (in order of first win)")
+WinningClubByNation1 <- WinningClubByNation1 %>%
+  separate_rows(Clubs, sep = ", ")
+
+MenWinningClubByNation <- WinningClubByNation1 %>%
+  group_by(Nation) %>%
+  mutate(
+    clubNum = paste0("Club ", row_number())
+    ) %>%
+  pivot_wider(
+    names_from = clubNum,
+    values_from = Clubs
+    )
+
+MenWinningClubByNation <- MenWinningClubByNation %>% 
+  select(
+  Nation, `Club 1`, `Club 2`, `Club 3`, `Club 4`,
+  `Club 5`, `Club 6`, `Number of winners`
+  )
+
+MenWinningClubByNation %>%
+  replace(is.na(.), "") %>%
+  kable(format = "markdown", caption = "Men's Winning Clubs Performances in finals by nation")
+```
+
+\newpage
+
+2.  This data was sourced from Wikipedia. Using HTML scraping, I obtained two tables from the site that detail performances in the UEFA Women's Cup and UEFA Women's Champions League by club:
+
+a)  Performance by Club – This table displays each club’s performance in the tournament, including the number of times they have won or finished as runners-up, along with the specific seasons in which these outcomes occurred.
+
+```{r Second Secondary Data Set HTMLScraping, echo=FALSE}
+
+URL <- "https://en.wikipedia.org/wiki/UEFA_Women%27s_Champions_League"
+ListOfTables <- URL %>%
+read_html() %>%
+html_nodes(css = "table") %>%
+html_table(fill = TRUE)
+WomenClubSummary <- ListOfTables[[5]]
+WomenNationSummary <- ListOfTables[[6]]
+WomenNationSummary <- WomenNationSummary[, 1:4]
+```
+
+```{r tbl-WomenClubSummary, echo=FALSE}
+
+kable(WomenClubSummary, caption = "Women’s Performances in finals by club")
+```
+
+\newpage
+
+b)  Performance by nation - This table summarizes each nation's overall success in the UEFA Champions League. It includes the number of titles won, runner-up finishes, and semi-final appearances by clubs from each country. It also lists the specific clubs that contributed to those results under each category.
+
+```{r tbl-WomenNationSummary, echo=FALSE}
+
+kable(WomenNationSummary, caption = "Women Performance in finals by nation")
+```
+
+## Exploratory Data Analysis
+
+1.  Which three countries have dominated the UEFA Men's Champions League the most (by total titles won)?
+
+```{r tbl-Top3Menscountries, echo=FALSE}
+
+UclFinals %>%
+  group_by(winner.country) %>%
+  summarise(total_titles = n()) %>%
+  arrange(desc(total_titles)) %>%
+  rename("Country" = winner.country,
+         "Titles" = total_titles) %>%
+  head(total_titles, n = 3) %>%
+  kable(caption = "Top three countries with the most UEFA Men’s Champions League titles.")
+```
+
+From my exploration, we see that Spain, England and Italy have dominated the UEFA Men's Champions League. Let's see if it's the same for women.
+
+2.  Which three countries have dominated the UEFA Women's Cup and Champions League the most (by total titles won)?
+
+```{r tbl-Top3Womenscountries, echo=FALSE}
+
+WomenNationSummary %>%
+  select("Nation", "Winners") %>%
+  head(3) %>%
+  kable(caption = "Top three countries with the most UEFA Women’s Champions League titles.")
+```
+
+From my exploration as seen in @tbl-Top3Womenscountries, we see that Germany, France, and Spain have dominated the UEFA Women's Champions League.
+
+According to @tbl-Top3Menscountries and @tbl-Top3Womenscountries, since Spain and Germany are found to be among the top three countries dominating both the Men’s and Women’s UEFA Champions League respectively, let’s identify the Spanish and German clubs that have been most successful in both competitions.
+
+3.  Within the most dominant country, which club has been the most successful in the UEFA Men’s and Women’s Champions League?
+
+[For the Men:]{.underline}
+
+```{r DominatingSpanishClub, echo=FALSE}
+
+get_dominating_club <- function(data, country) {
+  data %>%
+    select(Nation, `Club 1`) %>%
+    filter(Nation == country) %>%
+    rename(`Dominating Club` = `Club 1`) %>%
+    kable(caption = "Dominating Spanish Club")
+}
+
+get_dominating_club(MenWinningClubByNation, "Spain")
+```
+
+[For the Women:]{.underline} The data with the column of clubs that have been dominating couldn't be read in, so I looked at the website and found out that Eintracht Frankfurt have the most dominating German club in the Women Champion's League.
+
+4.  Which club holds the record for the most UEFA Men and Women Champions League titles, and how many have they won?
+
+[For the Men:]{.underline}
+
+```{r tbl-MostDominatingMensClub, echo=FALSE}
+
+UclFinals %>%
+  group_by(winner) %>%
+  summarise(titles = n()) %>%
+  arrange(desc(titles)) %>%
+  head(5) %>%
+  rename(Team = winner) %>%
+  kable(caption = "Most dominating club in the UEFA Men's Champion's League")
+```
+
+From the exploration as seen in @tbl-MostDominatingMensClub, Real Madrid holds the most UEFA Men’s Champions League titles, with 14 wins.
+
+**Plot for top 5 Mens teams with the most titles**
+
+```{r fig-PlotMostDominatingMensClub, echo=FALSE}
+
+MostDominatingMensClub <- UclFinals %>%
+  group_by(winner) %>%
+  summarise(titles = n()) %>%
+  arrange(desc(titles)) %>%
+  head(5)
+
+ggplot(data = MostDominatingMensClub, aes(x = winner, y = titles)) + geom_point()  + labs(title = "UEFA Men's Champions League Top 5 Winners")
+```
+
+[For the Women:]{.underline}
+
+```{r tbl-MostDominatingWomensClub, echo=FALSE}
+
+WomenClubSummary %>%
+  select("Club", "Titles") %>%
+  rename(Team = "Club") %>%
+  arrange(desc(Titles)) %>%
+  head(5) %>%
+  kable(caption = "Most dominating club in the UEFA Women's Champion's League")
+```
+
+**Plot for top 5 Womens teams with the most titles**
+
+```{r fig-PlotMostDominatingWomensClub, echo= FALSE}
+
+MostDominatingWomensClub <- WomenClubSummary %>%
+  select("Club", "Titles") %>%
+  arrange(desc(Titles)) %>%
+  head(5)
+
+ggplot(data = MostDominatingWomensClub, aes(x = Club, y = Titles)) + geom_point()  + labs(title = "UEFA Women's Champions League Top 5 Winners")
+```
+
+From the exploration as seen in @tbl-MostDominatingWomensClub and @fig-PlotMostDominatingWomensClub, Lyon holds the most UEFA Women’s Champions League titles, with 14 wins.
+
+However, dominating the competition isn’t just about winning, it also includes consistent appearances in the final. So, let’s find out if there’s a difference between the top five teams with the most UEFA Men’s Champions League titles and the top five teams with the most final appearances.
+
+5.  Which club has appeared in the most UEFA Champions League finals (Men's and Women's)?
+
+[For the Men:]{.underline}
+
+```{r tbl-MensTop5Appearances, echo = FALSE}
+
+UclFinals %>%
+  select(winner, runner.up) %>%
+  pivot_longer(cols = c(winner, runner.up), names_to = "Result", values_to = "Team") %>%
+  count(Team, sort = TRUE, name = "Final Appearances") %>%
+  head(5) %>%
+  kable()
+```
+
+From the exploration, it’s clear that Real Madrid is the most dominant team in the UEFA Men’s Champions League. In addition to holding the most titles, they also have the highest number of final appearances—17 in total.
+
+An interesting observation is that Juventus, despite reaching the final nine times—placing them in the top five for final appearances—is not among the top five teams in terms of title wins according to @tbl-MostDominatingMensClub. This highlights the competitiveness of the UEFA Men’s Champions League.
+
+**Plot for top five Men's teams with the most final appearances**
+
+```{r fig-PlotMensTop5Appearance,echo= FALSE}
+
+MensTop5Appearance <- UclFinals %>%
+  select(winner, runner.up) %>%
+  pivot_longer(cols = c(winner, runner.up), names_to = "Result", values_to = "Team") %>%
+  count(Team, sort = TRUE, name = "Final_Appearances") %>%
+  head(5)
+
+ggplot(data = MensTop5Appearance, aes(x = Final_Appearances, y = Final_Appearances)) + geom_point()  + facet_wrap(~Team, ncol = 4) + labs(    title = "UEFA Men's Champions League Top 5 Appearances")
+```
+
+[For the Women:]{.underline}
+
+```{r tbl-WomensTop5Appearance, echo=FALSE}
+
+WomenClubSummary %>%
+  mutate(Final_Appearances = Titles + `Runners-up`) %>%
+  select("Club", "Final_Appearances") %>%
+  rename(Team = Club) %>%
+  head(5) %>%
+  kable()
+```
+
+From the exploration, it’s clear that Lyon is the most dominant team in the UEFA Women’s Champions League. Not only do they hold the most titles, but they also have the highest number of final appearances—11 in total.
+
+An interesting observation is that the top five teams in title wins are the same as those in final appearances. This suggests that the Women’s competition has been less competitive or more top-heavy compared to the Men’s.
+
+**Plot for top five Women's teams with the most final appearances**
+
+```{r fig-PlotWomensTop5Appearance, echo=FALSE}
+
+WomensTop5Appearance <-  WomenClubSummary %>%
+  mutate(Final_Appearances = Titles + `Runners-up`) %>%
+  select("Club", "Final_Appearances") %>%
+  rename(Team = Club) %>%
+  head(5)
+
+ggplot(data = WomensTop5Appearance, aes(x = Team, y = Final_Appearances)) + geom_point()  + labs(title = "UEFA Women's Champions League Top 5 Appearances")
+```
+## Conclusion
+
+This analysis explored the historical performance of clubs and nations in the UEFA Champions League, both for the men's and women's tournaments. By examining data on title wins, runner-up appearances, and other performance metrics, we identified which countries and clubs have been the most dominant in the competition’s history.
+
+Our findings reveal that a handful of countries—such as Spain, England, and Italy—consistently lead in total titles across the men's league, while Germany, France, and Spain lead in total titles for the women's league. However, notable differences also emerged: for example, France has shown remarkable strength in the women's competition, largely due to the dominance of Olympique Lyonnais (Lyon), whereas Spanish clubs—particularly Real Madrid—have had unrivaled success on the men’s side.
+
+Through data wrangling, cleaning, and visualization, we were able to make these patterns clear and compare performance across gender lines. This project demonstrates how data analysis can be used to highlight trends, answer guiding questions, and support broader narratives in sports history.
+
+Ultimately, this analysis not only offers a statistical view of European club football dominance but also invites reflection on the evolving competitiveness and growth of women’s football across the continent.
+
+## References
+
+1. (2024, April 4). UEFA Champions League All Finals (1955 - 2023). Kaggle. <https://www.kaggle.com/datasets/renjiabarai/uefa-champions-league-all-finals-1955-2023> 
+
+2. Wikimedia Foundation. (2025a, June 4). UEFA Women’s Champions League. Wikipedia. <https://en.wikipedia.org/wiki/UEFA_Women%27s_Champions_League> 
+
+3. Wikimedia Foundation. (2025b, June 29). List of European Cup and UEFA Champions League Finals. Wikipedia. <https://en.wikipedia.org/wiki/List_of_European_Cup_and_UEFA_Champions_League_finals> 
+
+## Code Appendix
+
+```{r codeAppendix, ref.label = knitr::all_labels(), echo=TRUE, eval=FALSE}
+
+```
+
